@@ -1,0 +1,17 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+归档/*
+cookie/*
+output/markdown/*
+output/sync_records/*
+CLAUDE.md
+requirements.txt
+uv.lock
