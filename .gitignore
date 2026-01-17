@@ -6,6 +6,8 @@ dist/
 wheels/
 *.egg-info
 
+*.json
+
 # Virtual environments
 .venv
 归档/*
@@ -15,3 +17,4 @@ output/sync_records/*
 CLAUDE.md
 requirements.txt
 uv.lock
+

@@ -59,7 +59,7 @@ class BVInfoExtractor:
             video = biliVideo(bv=bv_id, cookie_path=self.cookie_path)
 
             # 获取视频基本信息
-            video.get_content(stat=True, tag=True, up=True)
+            video.get_content(stat=True, tag=True, up=True, subtitle=True)
 
             # 获取用户互动信息（需要登录）
             try:
@@ -99,6 +99,9 @@ class BVInfoExtractor:
 
                 # 标签信息
                 "tag": video.tag,
+
+                # 字幕信息
+                "subtitle": video.subtitle,
 
                 # UP主信息
                 "up": video.up,

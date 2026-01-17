@@ -229,7 +229,8 @@ class biliVideo(BiliVideoUtil):
         self.url_tag = "https://api.bilibili.com/x/tag/archive/tags"  # 视频标签
         self.url_play = "https://api.bilibili.com/x/player/wbi/playurl"  # 视频下载
         self.url_up = "https://api.bilibili.com/x/web-interface/card"  # up主信息(简略)
-
+        self.url_subtitle = f"https://api.bilibili.com/x/player/wbi/v2?aid={self.av}&cid={self.cid}"  # 字幕信息
+        
         self.headers = {
             "User-Agent": useragent().pcChrome,
             "Cookie": cookies(path=cookie_path).bilicookie,
@@ -293,7 +294,7 @@ class biliVideo(BiliVideoUtil):
         #         f.write(self.rtext)
 
     # 用于获取视频信息
-    def get_content(self, stat=True, tag=True, up=True):
+    def get_content(self, stat=True, tag=True, up=True, subtitle=True):
         """
         [使用方法]:
             biliV = biliVideo("BV18x4y187DE")
@@ -353,6 +354,16 @@ class biliVideo(BiliVideoUtil):
                 return False
             r_json = r_json["data"]
             self.tag = [tag["tag_name"] for tag in r_json]
+
+        # 获取字幕
+        if subtitle:
+            r = requests.get(url=self.url_subtitle, headers=self.headers)
+            r_json = r.json()
+            if r_json["code"] != 0:
+                print(f"获取字幕信息失败，错误代码：{r_json['code']}，错误信息：{r_json['message']}")
+                return False
+            r_json = r_json["data"]
+            self.subtitle = r_json["subtitle"]
 
     # 下载视频
     def download_video(self, save_video_path=None, save_video_name=None, save_video_add_desc="视频(无音频)",
