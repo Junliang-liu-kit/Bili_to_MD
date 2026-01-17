@@ -221,6 +221,116 @@ class DataSyncManager:
 
         return safe_name
 
+    def clean_markdown_content(self, content: str) -> str:
+        """
+        清理和规范化 Markdown 内容，处理转义符和换行符
+
+        Args:
+            content: 原始 Markdown 内容字符串
+
+        Returns:
+            清理后的 Markdown 内容
+        """
+        if not content:
+            return ""
+        
+        cleaned = content
+        
+        # 首先处理反斜杠转义，注意顺序很重要
+        # 先处理双反斜杠，避免影响其他转义字符的处理
+        cleaned = cleaned.replace('\\\\', '\x00')  # 临时替换，避免干扰
+        
+        # 处理 JSON 字符串中的转义字符（字面的 \n, \t, \r 等）
+        cleaned = cleaned.replace('\\n', '\n')
+        cleaned = cleaned.replace('\\t', '\t')
+        cleaned = cleaned.replace('\\r', '\r')
+        cleaned = cleaned.replace('\\"', '"')
+        cleaned = cleaned.replace("\\'", "'")
+        
+        # 恢复真正的反斜杠
+        cleaned = cleaned.replace('\x00', '\\')
+        
+        # 规范化换行符：统一使用 \n
+        cleaned = cleaned.replace('\r\n', '\n').replace('\r', '\n')
+        
+        # 移除开头和结尾的多余空白字符
+        cleaned = cleaned.strip()
+        
+        # 移除连续的空行（保留最多两个连续换行，用于 Markdown 段落分隔）
+        # 将3个或更多连续换行符替换为2个换行符
+        cleaned = re.sub(r'\n{3,}', '\n\n', cleaned)
+        
+        return cleaned
+
+    def extract_subtitle_content(self, video_info: Dict) -> str:
+        """
+        从视频信息中提取字幕内容，按优先级选择：
+        1. 优先使用排版后字幕（reformatted_content）
+        2. 如果没有排版后字幕，使用原始字幕（content）
+        3. 如果都没有，返回"无视频字幕"
+        
+        该方法会内部调用 get_subtitle.py 的 get_video_subtitles 方法获取字幕
+
+        Args:
+            video_info: 视频信息字典
+
+        Returns:
+            字幕内容字符串
+        """
+        try:
+            # 导入字幕提取器
+            from get_subtitle import SubtitleExtractor
+            
+            # 创建字幕提取器实例
+            subtitle_extractor = SubtitleExtractor()
+            
+            # 获取单个视频的字幕（启用排版功能）
+            subtitle_result = subtitle_extractor.get_video_subtitles(
+                video_info, 
+                reformat=True
+            )
+            
+            # 检查是否成功获取字幕
+            if not subtitle_result.get('success', False):
+                return "无视频字幕"
+            
+            # 检查是否有字幕数据
+            subtitles = subtitle_result.get('subtitles', [])
+            
+            if not subtitles or not isinstance(subtitles, list):
+                return "无视频字幕"
+            
+            # 遍历所有字幕，优先查找有 reformatted_content 的
+            for subtitle in subtitles:
+                if not isinstance(subtitle, dict):
+                    continue
+                
+                # 优先使用排版后字幕
+                reformatted_content = subtitle.get('reformatted_content', '')
+                if reformatted_content and reformatted_content.strip():
+                    # 清理和规范化 Markdown 内容
+                    cleaned_content = self.clean_markdown_content(reformatted_content)
+                    return cleaned_content if cleaned_content else "无视频字幕"
+            
+            # 如果没有排版后字幕，查找原始字幕
+            for subtitle in subtitles:
+                if not isinstance(subtitle, dict):
+                    continue
+                
+                content = subtitle.get('content', '')
+                if content and content.strip():
+                    # 原始字幕也进行基本清理
+                    cleaned_content = self.clean_markdown_content(content)
+                    return cleaned_content if cleaned_content else "无视频字幕"
+            
+            # 如果都没有，返回默认提示
+            return "无视频字幕"
+            
+        except Exception as e:
+            # 如果获取字幕失败，返回默认提示
+            print(f"  警告：获取字幕失败 ({video_info.get('bv', 'unknown')}): {e}")
+            return "无视频字幕"
+
     def save_to_markdown(self, video_info: Dict) -> bool:
         """
         将视频信息保存为Markdown文件
@@ -269,6 +379,13 @@ class DataSyncManager:
                 content_lines.append(f"# {title}")
                 content_lines.append("")
                 content_lines.append("*该视频暂无描述*")
+
+            # 添加字幕内容（内部会自动获取字幕）
+            content_lines.append("")  # 空行
+            content_lines.append("## 视频字幕")
+            content_lines.append("")
+            subtitle_content = self.extract_subtitle_content(video_info)
+            content_lines.append(subtitle_content)
 
             # 写入文件
             with open(filepath, 'w', encoding='utf-8') as f:
@@ -354,8 +471,8 @@ class DataSyncManager:
             print("未能提取到有效视频信息，同步终止")
             return False
 
-        # 步骤5 & 6: 筛选核心信息并保存为Markdown
-        print(f"\n开始保存 {len(video_info_list)} 个视频的Markdown文件...")
+        # 步骤5: 筛选核心信息并保存为Markdown（字幕获取在 save_to_markdown 内部自动完成）
+        print(f"\n步骤5: 开始保存 {len(video_info_list)} 个视频的Markdown文件...")
         success_count = 0
         for video_info in video_info_list:
             if self.save_to_markdown(video_info):

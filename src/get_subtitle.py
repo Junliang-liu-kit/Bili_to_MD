@@ -141,15 +141,16 @@ class SubtitleExtractor:
         full_text = ''.join(content_list)
         return full_text
 
-    def get_video_subtitles(self, video_info: Dict) -> Dict:
+    def get_video_subtitles(self, video_info: Dict, reformat: bool = False) -> Dict:
         """
         获取单个视频的字幕
 
         Args:
             video_info: 视频信息字典
+            reformat: 是否对字幕进行重新排版，默认为False
 
         Returns:
-            包含字幕信息的字典
+            包含字幕信息的字典，如果reformat=True，每个字幕会包含reformatted_content字段
         """
         bv = video_info.get('bv', 'Unknown')
         title = video_info.get('title', 'Unknown')
@@ -187,6 +188,19 @@ class SubtitleExtractor:
                 "fetch_time": datetime.now().isoformat()
             }
         
+        # 如果需要重新排版，初始化重新排版器
+        reformatter = None
+        if reformat:
+            try:
+                from reformat_subtitle import SubtitleReformatter
+                reformatter = SubtitleReformatter()
+            except ImportError:
+                print("  警告：无法导入 reformat_subtitle 模块，跳过重新排版")
+                reformat = False
+            except Exception as e:
+                print(f"  警告：初始化重新排版器失败: {e}，跳过重新排版")
+                reformat = False
+        
         # 获取所有选中字幕的内容
         subtitle_results = []
         for sub in selected_subtitles:
@@ -201,12 +215,43 @@ class SubtitleExtractor:
             if subtitle_content:
                 # 提取字幕全文
                 subtitle_text = self.extract_subtitle_text(subtitle_content)
-                subtitle_results.append({
+                subtitle_item = {
                     "lan": lan,
                     "lan_doc": lan_doc,
                     "subtitle_url": subtitle_url,
                     "content": subtitle_text
-                })
+                }
+                
+                # 如果需要重新排版，调用重新排版功能
+                if reformat and reformatter:
+                    try:
+                        print(f"    正在重新排版 {lan} 字幕...")
+                        # 构造临时数据结构用于重新排版
+                        temp_subtitle_data = {
+                            "title": title,
+                            "subtitles": [{
+                                "lan": lan,
+                                "content": subtitle_text
+                            }]
+                        }
+                        # 调用重新排版
+                        reformatted_data = reformatter.reformat_subtitle_content(temp_subtitle_data)
+                        # 提取重新排版后的内容
+                        if reformatted_data.get('subtitles') and len(reformatted_data['subtitles']) > 0:
+                            reformatted_content = reformatted_data['subtitles'][0].get('content', '')
+                            subtitle_item['reformatted_content'] = reformatted_content
+                            print(f"    ✓ {lan} 字幕重新排版成功")
+                        else:
+                            subtitle_item['reformatted_content'] = ''
+                            print(f"    ✗ {lan} 字幕重新排版失败：未返回结果")
+                    except Exception as e:
+                        print(f"    ✗ {lan} 字幕重新排版失败: {e}")
+                        subtitle_item['reformatted_content'] = ''
+                else:
+                    # 如果不需要重新排版，reformatted_content 字段为空
+                    subtitle_item['reformatted_content'] = ''
+                
+                subtitle_results.append(subtitle_item)
                 print(f"  ✓ {lan} 字幕获取成功")
             else:
                 print(f"  ✗ {lan} 字幕获取失败")
@@ -234,13 +279,14 @@ class SubtitleExtractor:
             "fetch_time": datetime.now().isoformat()
         }
 
-    def get_batch_subtitles(self, video_info_list: List[Dict], delay: float = 1.0) -> List[Dict]:
+    def get_batch_subtitles(self, video_info_list: List[Dict], delay: float = 1.0, reformat: bool = False) -> List[Dict]:
         """
         批量获取视频字幕
 
         Args:
             video_info_list: 视频信息列表
             delay: 请求间隔时间（秒），默认为1秒
+            reformat: 是否对字幕进行重新排版，默认为False
 
         Returns:
             字幕信息列表
@@ -254,7 +300,7 @@ class SubtitleExtractor:
             print(f"[{i}/{total}] ", end="")
             
             # 获取单个视频字幕
-            subtitle_result = self.get_video_subtitles(video_info)
+            subtitle_result = self.get_video_subtitles(video_info, reformat=reformat)
             results.append(subtitle_result)
             
             # 添加随机延迟避免请求过快
@@ -333,6 +379,7 @@ class SubtitleExtractor:
             return []
 
 
+
 def main():
     """主函数"""
     
@@ -390,7 +437,7 @@ def main():
     print("-" * 50)
     
     # 获取字幕
-    results = extractor.get_batch_subtitles(video_info_list, delay=1.0)
+    results = extractor.get_batch_subtitles(video_info_list, delay=1.0, reformat=True)
     
     # 保存结果
     output_path = extractor.save_results_to_json(results, output_filename)
