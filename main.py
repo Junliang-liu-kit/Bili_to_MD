@@ -36,7 +36,7 @@ from src.data_sync import DataSyncManager
 
 
 def sync_workflow(media_id: int, cookie_path: Optional[str] = None,
-                 output_dir: str = "output/markdown") -> bool:
+                 output_dir: str = "output/markdown", reformat: bool = False, api_key: str = None) -> bool:
     """
     执行完整的收藏夹同步工作流
 
@@ -44,7 +44,8 @@ def sync_workflow(media_id: int, cookie_path: Optional[str] = None,
         media_id: 收藏夹的media_id
         cookie_path: cookie文件路径，可选
         output_dir: 输出目录路径
-
+        reformat: 是否重新排版
+        api_key: GLM API密钥
     Returns:
         同步是否成功
     """
@@ -64,7 +65,7 @@ def sync_workflow(media_id: int, cookie_path: Optional[str] = None,
 
         # 步骤2: 检查历史同步记录
         print("\n步骤2: 检查历史同步记录...")
-        sync_manager = DataSyncManager(output_dir=output_dir)
+        sync_manager = DataSyncManager(output_dir=output_dir, reformat=reformat, api_key=api_key)
         synced_bvs = sync_manager.load_sync_record(media_id)
 
         # 步骤3: 筛选待同步视频
@@ -149,6 +150,10 @@ def load_config():
         cookie_path = sync_params.get('COOKIE_PATH')
         output_dir = sync_params.get('OUTPUT_DIR')
 
+        llm_params = config['LLM Parameters for GLM']
+        reformat = True if llm_params.get('REFORMAT') == 'True' else False
+        api_key = llm_params.get('API_KEY')
+
         # 处理MEDIA_ID字符串格式（去除引号）
         if media_id and media_id.startswith('"') and media_id.endswith('"'):
             media_id = media_id[1:-1]
@@ -172,7 +177,7 @@ def load_config():
             print(f"❌ 错误：无效的MEDIA_ID格式: {media_id}")
             sys.exit(1)
 
-        return media_id, cookie_path, output_dir
+        return media_id, cookie_path, output_dir, reformat, api_key
 
     except Exception as e:
         print(f"❌ 错误：读取配置文件失败: {str(e)}")
@@ -182,7 +187,7 @@ def load_config():
 def main():
     """主函数"""
     # 从配置文件加载参数
-    media_id, cookie_path, output_dir = load_config()
+    media_id, cookie_path, output_dir, reformat, api_key = load_config()
 
     # 检查cookie文件（如果指定）
     if cookie_path and cookie_path != "qr_login.txt" and not os.path.exists(cookie_path):
@@ -201,7 +206,7 @@ def main():
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     # 执行同步工作流
-    success = sync_workflow(media_id, cookie_path, output_dir)
+    success = sync_workflow(media_id, cookie_path, output_dir, reformat, api_key)
 
     print("\n" + "=" * 50)
     if success:

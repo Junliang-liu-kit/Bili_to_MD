@@ -29,13 +29,15 @@ from pathlib import Path
 class DataSyncManager:
     """数据同步管理器"""
 
-    def __init__(self, output_dir: str = "output/markdown", sync_records_dir: str = "output/sync_records"):
+    def __init__(self, output_dir: str = "output/markdown", sync_records_dir: str = "output/sync_records", reformat: bool = False, api_key: str = None):
         """
         初始化数据同步管理器
 
         Args:
             output_dir: Markdown文件输出目录
             sync_records_dir: 同步记录存储目录
+            reformat: 是否重新排版，默认为False
+            api_key: GLM API密钥，默认为None
         """
         self.output_dir = Path(output_dir)
         self.sync_records_dir = Path(sync_records_dir)
@@ -46,6 +48,9 @@ class DataSyncManager:
 
         # 核心信息字段
         self.core_fields = ["bv", "url_bv", "title", "desc", "time", "up", "fetch_time"]
+
+        self.reformat = reformat
+        self.api_key = api_key
 
     def extract_video_list(self, json_file: str) -> List[str]:
         """
@@ -282,7 +287,7 @@ class DataSyncManager:
             from get_subtitle import SubtitleExtractor
             
             # 创建字幕提取器实例
-            subtitle_extractor = SubtitleExtractor()
+            subtitle_extractor = SubtitleExtractor(reformat=self.reformat, api_key=self.api_key)
             
             # 获取单个视频的字幕（启用排版功能）
             subtitle_result = subtitle_extractor.get_video_subtitles(
@@ -517,6 +522,8 @@ def main():
     # 获取参数
     json_file = args.json_file or args.json_file_alt
     media_id = args.media_id or args.media_id_alt
+    reformat = False
+    api_key = None # 重新排版需要提供api_key
 
     if not json_file or not media_id:
         print("错误: 必须指定JSON文件路径和收藏夹ID")
@@ -531,7 +538,9 @@ def main():
     # 创建同步管理器
     sync_manager = DataSyncManager(
         output_dir=args.output_dir,
-        sync_records_dir=args.sync_records_dir
+        sync_records_dir=args.sync_records_dir,
+        reformat=reformat,
+        api_key=api_key
     )
 
     # 执行同步

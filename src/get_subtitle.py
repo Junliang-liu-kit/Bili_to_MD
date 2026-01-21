@@ -32,12 +32,14 @@ from Tools.config import bilicookies
 class SubtitleExtractor:
     """字幕提取器"""
 
-    def __init__(self, cookie_path: Optional[str] = None):
+    def __init__(self, cookie_path: Optional[str] = None, reformat: bool = False, api_key: str = None):
         """
         初始化字幕提取器
 
         Args:
             cookie_path: cookie文件路径，默认为None使用默认路径
+            reformat: 是否重新排版，默认为False
+            api_key: GLM API密钥，默认为None
         """
         self.cookie_path = cookie_path
         if cookie_path is None:
@@ -50,6 +52,9 @@ class SubtitleExtractor:
             "Cookie": bilicookies(path=cookie_path).bilicookie,
             'referer': 'https://www.bilibili.com'
         }
+
+        self.reformat = reformat
+        self.api_key = api_key
 
     def _select_subtitles(self, subtitles: List[Dict]) -> List[Dict]:
         """
@@ -193,7 +198,7 @@ class SubtitleExtractor:
         if reformat:
             try:
                 from reformat_subtitle import SubtitleReformatter
-                reformatter = SubtitleReformatter()
+                reformatter = SubtitleReformatter(api_key=self.api_key)
             except ImportError:
                 print("  警告：无法导入 reformat_subtitle 模块，跳过重新排版")
                 reformat = False
@@ -225,7 +230,6 @@ class SubtitleExtractor:
                 # 如果需要重新排版，调用重新排版功能
                 if reformat and reformatter:
                     try:
-                        print(f"    正在重新排版 {lan} 字幕...")
                         # 构造临时数据结构用于重新排版
                         temp_subtitle_data = {
                             "title": title,
@@ -238,23 +242,17 @@ class SubtitleExtractor:
                         reformatted_data = reformatter.reformat_subtitle_content(temp_subtitle_data)
                         # 提取重新排版后的内容
                         if reformatted_data.get('subtitles') and len(reformatted_data['subtitles']) > 0:
-                            reformatted_content = reformatted_data['subtitles'][0].get('content', '')
+                            reformatted_content = reformatted_data['subtitles'][0].get('reformatted_content', '')
                             subtitle_item['reformatted_content'] = reformatted_content
-                            print(f"    ✓ {lan} 字幕重新排版成功")
                         else:
                             subtitle_item['reformatted_content'] = ''
-                            print(f"    ✗ {lan} 字幕重新排版失败：未返回结果")
                     except Exception as e:
-                        print(f"    ✗ {lan} 字幕重新排版失败: {e}")
                         subtitle_item['reformatted_content'] = ''
                 else:
                     # 如果不需要重新排版，reformatted_content 字段为空
                     subtitle_item['reformatted_content'] = ''
                 
                 subtitle_results.append(subtitle_item)
-                print(f"  ✓ {lan} 字幕获取成功")
-            else:
-                print(f"  ✗ {lan} 字幕获取失败")
         
         if not subtitle_results:
             error_msg = f"{bv} 字幕内容获取失败"
@@ -300,7 +298,7 @@ class SubtitleExtractor:
             print(f"[{i}/{total}] ", end="")
             
             # 获取单个视频字幕
-            subtitle_result = self.get_video_subtitles(video_info, reformat=reformat)
+            subtitle_result = self.get_video_subtitles(video_info, reformat=self.reformat)
             results.append(subtitle_result)
             
             # 添加随机延迟避免请求过快
@@ -400,6 +398,8 @@ def main():
     json_path = sys.argv[1]
     output_filename = None
     cookie_path = None
+    reformat = False
+    api_key = None # 重新排版需要提供api_key
     
     # 解析参数
     i = 2
@@ -416,7 +416,7 @@ def main():
         elif arg == '--cookie':
             if i + 1 < len(sys.argv):
                 cookie_path = sys.argv[i + 1]
-                extractor = SubtitleExtractor(cookie_path=cookie_path)
+                extractor = SubtitleExtractor(cookie_path=cookie_path, reformat=reformat, api_key=api_key)
                 i += 2
             else:
                 print("--cookie 参数需要指定cookie路径")

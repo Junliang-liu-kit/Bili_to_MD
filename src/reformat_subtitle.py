@@ -4,7 +4,7 @@
 字幕重新排版模块
 
 使用大模型对 JSON 字幕文件的 content 字段进行重新排版。
-提示词存放在 config/prompt.yml，使用 GLM-4.7 模型。
+提示词存放在 config/prompt.yml，使用 GLM-4.6 模型。
 """
 
 import os
@@ -21,59 +21,17 @@ from pathlib import Path
 class SubtitleReformatter:
     """字幕重新排版器"""
 
-    def __init__(self, api_key: Optional[str] = None, config_path: Optional[str] = None):
+    def __init__(self, api_key: str):
         """
         初始化字幕重新排版器
 
         Args:
-            api_key: GLM API密钥，如果为None则从配置文件或环境变量读取
-            config_path: 配置文件路径，如果为None则使用默认路径
+            api_key: GLM API密钥，必须提供
         """
-        self.api_key = api_key
-        if self.api_key is None:
-            self.api_key = self._load_api_key_from_config(config_path)
+        if not api_key:
+            raise ValueError("必须提供 GLM API Key")
         
-        if not self.api_key:
-            raise ValueError("未找到 GLM API Key，请设置环境变量 GLM_API_KEY、在 config/dev.ini 中配置，或通过参数传入")
-
-    def _load_api_key_from_config(self, config_path: Optional[str] = None) -> Optional[str]:
-        """
-        从配置文件或环境变量加载 API Key
-
-        Args:
-            config_path: 配置文件路径，如果为None则使用默认路径
-
-        Returns:
-            API Key，如果未找到则返回None
-        """
-        # 优先从环境变量读取
-        api_key = os.getenv('GLM_API_KEY')
-        if api_key:
-            return api_key
-
-        # 从配置文件读取
-        if config_path is None:
-            # 获取项目根目录
-            current_file = Path(__file__)
-            project_root = current_file.parent.parent
-            config_path = project_root / "config" / "dev.ini"
-
-        try:
-            config = configparser.ConfigParser()
-            config.read(config_path, encoding='utf-8')
-            
-            # 尝试从 LLM Parameters section 读取
-            if 'LLM Parameters' in config:
-                api_key = config['LLM Parameters'].get('GLM_API_KEY', '')
-                if api_key:
-                    # 处理字符串格式（去除引号）
-                    if api_key.startswith('"') and api_key.endswith('"'):
-                        api_key = api_key[1:-1]
-                    return api_key.strip()
-        except Exception as e:
-            print(f"警告：从配置文件读取 API Key 失败: {e}")
-
-        return None
+        self.api_key = api_key
 
     def _load_prompts_from_yaml(self, yaml_path: Optional[str] = None) -> dict:
         """
@@ -137,7 +95,7 @@ class SubtitleReformatter:
                 }
             ],
             "thinking": {
-            "type": "enabled"
+                "type": "disabled"
             },
             "temperature": 0.7,
             "stream": False,
@@ -205,7 +163,7 @@ class SubtitleReformatter:
                 
                 # 创建新的字幕字典，保持原有字段，只更新 content
                 new_subtitle = subtitle.copy()
-                new_subtitle['content'] = reformatted_content
+                new_subtitle['reformatted_content'] = reformatted_content
                 reformatted_subtitles.append(new_subtitle)
                 
                 print(f"  ✓ {subtitle.get('lan', 'unknown')} 字幕重新排版成功")
@@ -323,8 +281,32 @@ def main():
             i += 1
     
     try:
+        # 从 dev.ini 读取 API key
+        api_key = None
+        config_path = Path(__file__).parent.parent / "config" / "dev.ini"
+        
+        if config_path.exists():
+            try:
+                config = configparser.ConfigParser()
+                config.read(config_path, encoding='utf-8')
+                
+                if 'LLM Parameters' in config:
+                    api_key = config['LLM Parameters'].get('GLM_API_KEY', '').strip()
+                    if api_key.startswith('"') and api_key.endswith('"'):
+                        api_key = api_key[1:-1]
+                    api_key = api_key.strip()
+            except Exception as e:
+                print(f"警告：从 dev.ini 读取 API Key 失败: {e}")
+        
+        # 如果配置文件中没有，从环境变量读取
+        if not api_key:
+            api_key = os.getenv('GLM_API_KEY')
+        
+        if not api_key:
+            raise ValueError("未找到 GLM API Key，请设置环境变量 GLM_API_KEY 或在 config/dev.ini 中配置")
+        
         # 创建重新排版器
-        reformatter = SubtitleReformatter()
+        reformatter = SubtitleReformatter(api_key=api_key)
         
         # 执行重新排版
         output_path = reformatter.reformat_subtitle_json_file(json_path, output_filename)
