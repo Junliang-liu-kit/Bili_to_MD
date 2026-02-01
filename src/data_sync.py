@@ -24,6 +24,7 @@ import re
 from datetime import datetime
 from typing import List, Dict, Set, Optional, Tuple
 from pathlib import Path
+from tqdm import tqdm
 
 
 class DataSyncManager:
@@ -416,7 +417,6 @@ class DataSyncManager:
             with open(filepath, 'w', encoding='utf-8') as f:
                 f.write('\n'.join(content_lines))
 
-            print(f"✓ 已保存: {filepath}")
             return True
 
         except Exception as e:
@@ -499,11 +499,17 @@ class DataSyncManager:
         # 步骤5: 筛选核心信息并保存为Markdown（字幕获取在 save_to_markdown 内部自动完成）
         print(f"\n步骤5: 开始保存 {len(video_info_list)} 个视频的Markdown文件...")
         success_count = 0
-        for video_info in video_info_list:
+        failed_bvs = []
+        for video_info in tqdm(video_info_list, desc="步骤5 保存Markdown", unit="视频"):
             if self.save_to_markdown(video_info):
                 success_count += 1
+            else:
+                failed_bvs.append(video_info.get('bv', 'unknown'))
 
+        failed_count = len(failed_bvs)
+        failed_bvs_display = ", ".join(failed_bvs) if failed_bvs else "无"
         print(f"成功保存: {success_count}/{len(video_info_list)} 个文件")
+        print(f"失败数量: {failed_count}，失败BV: {failed_bvs_display}")
 
         # 步骤7: 更新同步记录
         all_synced_bvs = list(set(current_bvs))  # 所有当前视频都算作已同步

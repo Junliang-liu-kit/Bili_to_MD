@@ -156,8 +156,6 @@ class SubtitleReformatter:
             user_prompt = user_prompt_template.replace('{{Topic}}', topic)
             user_prompt = user_prompt.replace('{{contents}}', original_content)
             
-            print(f"  正在重新排版 {subtitle.get('lan', 'unknown')} 字幕...")
-            
             try:
                 # 调用 GLM API
                 reformatted_content = self._call_glm_api(system_prompt, user_prompt)
@@ -166,8 +164,6 @@ class SubtitleReformatter:
                 new_subtitle = subtitle.copy()
                 new_subtitle['reformatted_content'] = reformatted_content
                 reformatted_subtitles.append(new_subtitle)
-                
-                print(f"  ✓ {subtitle.get('lan', 'unknown')} 字幕重新排版成功")
                 
             except Exception as e:
                 print(f"  ✗ {subtitle.get('lan', 'unknown')} 字幕重新排版失败: {e}")

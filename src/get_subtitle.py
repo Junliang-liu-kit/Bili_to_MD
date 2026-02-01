@@ -171,8 +171,6 @@ class SubtitleExtractor:
         bv = video_info.get('bv', 'Unknown')
         title = video_info.get('title', 'Unknown')
         
-        print(f"正在处理 {bv}: {title}")
-        
         # 获取字幕信息
         subtitle_info = video_info.get('subtitle', {})
         subtitles_list = subtitle_info.get('subtitles', [])
@@ -224,8 +222,6 @@ class SubtitleExtractor:
             lan_doc = sub.get('lan_doc', '')
             subtitle_url = sub.get('subtitle_url', '')
             
-            print(f"  正在获取 {lan} ({lan_doc}) 字幕...")
-            
             subtitle_content = self._fetch_subtitle_content(subtitle_url)
             
             if subtitle_content:
@@ -258,6 +254,7 @@ class SubtitleExtractor:
                         else:
                             subtitle_item['reformatted_content'] = ''
                     except Exception as e:
+                        print(f"  警告：{bv} {lan} 字幕重新排版失败: {e}")
                         subtitle_item['reformatted_content'] = ''
                 else:
                     # 如果不需要重新排版，reformatted_content 字段为空
@@ -276,8 +273,6 @@ class SubtitleExtractor:
                 "subtitles": [],
                 "fetch_time": datetime.now().isoformat()
             }
-        
-        print(f"✓ {bv} 字幕获取成功，共 {len(subtitle_results)} 个字幕")
         
         return {
             "bv": bv,
