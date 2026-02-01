@@ -86,6 +86,7 @@ class BVInfoExtractor:
                 "time": video.time,
                 "tid": video.tid,
                 "tname": video.tname,
+                "duration": video.duration,
 
                 # 统计数据
                 "stat": video.stat,

@@ -170,11 +170,12 @@ class SubtitleExtractor:
         """
         bv = video_info.get('bv', 'Unknown')
         title = video_info.get('title', 'Unknown')
-        
+        duration = video_info.get('duration')
+
         # 获取字幕信息
         subtitle_info = video_info.get('subtitle', {})
         subtitles_list = subtitle_info.get('subtitles', [])
-        
+
         if not subtitles_list:
             error_msg = f"{bv} 没有可用的字幕"
             print(f"✗ {error_msg}")
@@ -186,10 +187,10 @@ class SubtitleExtractor:
                 "subtitles": [],
                 "fetch_time": datetime.now().isoformat()
             }
-        
+
         # 根据优先级选择字幕
         selected_subtitles = self._select_subtitles(subtitles_list)
-        
+
         if not selected_subtitles:
             error_msg = f"{bv} 没有原声字幕或ai-zh字幕"
             print(f"✗ {error_msg}")
@@ -201,7 +202,35 @@ class SubtitleExtractor:
                 "subtitles": [],
                 "fetch_time": datetime.now().isoformat()
             }
-        
+
+        # T5: 字幕排版范围限定 - 检查是否应跳过排版
+        skip_reformat_reason = None
+        if reformat:
+            # 检查原声字幕（非ai开头）的字数
+            original_subtitles = [
+                sub for sub in selected_subtitles
+                if sub.get('lan', '') and not sub.get('lan', '').startswith('ai-')
+            ]
+
+            if original_subtitles:
+                # 先获取字幕内容以计算字数
+                temp_subtitle_url = original_subtitles[0].get('subtitle_url', '')
+                if temp_subtitle_url:
+                    temp_content = self._fetch_subtitle_content(temp_subtitle_url)
+                    if temp_content:
+                        subtitle_char_count = len(self.extract_subtitle_text(temp_content))
+                        if subtitle_char_count > self.max_original_subtitle_chars:
+                            skip_reformat_reason = f"字幕字数({subtitle_char_count})超过阈值({self.max_original_subtitle_chars})"
+
+            # 检查视频时长
+            if not skip_reformat_reason and duration is not None:
+                if duration > self.max_video_duration_sec:
+                    skip_reformat_reason = f"视频时长({duration}秒)超过阈值({self.max_video_duration_sec}秒)"
+
+            if skip_reformat_reason:
+                reformat = False
+                print(f"  ℹ {bv} 跳过字幕排版: {skip_reformat_reason}")
+
         # 如果需要重新排版，初始化重新排版器
         reformatter = None
         if reformat:

@@ -253,6 +253,7 @@ class biliVideo(BiliVideoUtil):
         self.coin = None  # 视频的投币量
         self.fav = None  # 视频的收藏量
         self.share = None  # 视频的转发量
+        self.duration = None # 视频的时长
         # 视频tag与分区
         self.tag = None  # 视频的标签
         self.tid = None  # 视频的分区tid
@@ -333,6 +334,7 @@ class biliVideo(BiliVideoUtil):
             self.tname = r_json["data"]["tname"]
             self.up = r_json["data"]["owner"]["name"]
             self.up_mid = r_json["data"]["owner"]["mid"]
+            self.duration = r_json["data"]["duration"]
 
         # 获取up主信息(除了name与mid之外的：是否关注up、up粉丝数)
         if up:
