@@ -32,7 +32,15 @@ from Tools.config import bilicookies
 class SubtitleExtractor:
     """字幕提取器"""
 
-    def __init__(self, cookie_path: Optional[str] = None, reformat: bool = False, api_key: str = None):
+    def __init__(
+        self,
+        cookie_path: Optional[str] = None,
+        reformat: bool = False,
+        api_key: str = None,
+        llm_timeout_sec: int = 40,
+        max_original_subtitle_chars: int = 8000,
+        max_video_duration_sec: int = 1800,
+    ):
         """
         初始化字幕提取器
 
@@ -55,6 +63,9 @@ class SubtitleExtractor:
 
         self.reformat = reformat
         self.api_key = api_key
+        self.llm_timeout_sec = llm_timeout_sec
+        self.max_original_subtitle_chars = max_original_subtitle_chars
+        self.max_video_duration_sec = max_video_duration_sec
 
     def _select_subtitles(self, subtitles: List[Dict]) -> List[Dict]:
         """
@@ -198,7 +209,7 @@ class SubtitleExtractor:
         if reformat:
             try:
                 from reformat_subtitle import SubtitleReformatter
-                reformatter = SubtitleReformatter(api_key=self.api_key)
+                reformatter = SubtitleReformatter(api_key=self.api_key, llm_timeout_sec=self.llm_timeout_sec)
             except ImportError:
                 print("  警告：无法导入 reformat_subtitle 模块，跳过重新排版")
                 reformat = False

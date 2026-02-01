@@ -21,7 +21,7 @@ from pathlib import Path
 class SubtitleReformatter:
     """字幕重新排版器"""
 
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, llm_timeout_sec: int = 40):
         """
         初始化字幕重新排版器
 
@@ -32,6 +32,7 @@ class SubtitleReformatter:
             raise ValueError("必须提供 GLM API Key")
         
         self.api_key = api_key
+        self.llm_timeout_sec = llm_timeout_sec
 
     def _load_prompts_from_yaml(self, yaml_path: Optional[str] = None) -> dict:
         """
@@ -103,7 +104,7 @@ class SubtitleReformatter:
         }
         
         try:
-            response = requests.post(url, headers=headers, json=payload, timeout=60)
+            response = requests.post(url, headers=headers, json=payload, timeout=self.llm_timeout_sec)
             response.raise_for_status()
             
             result = response.json()

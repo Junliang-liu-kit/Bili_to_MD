@@ -29,7 +29,17 @@ from pathlib import Path
 class DataSyncManager:
     """数据同步管理器"""
 
-    def __init__(self, output_dir: str = "output/markdown", sync_records_dir: str = "output/sync_records", reformat: bool = False, api_key: str = None):
+    def __init__(
+        self,
+        output_dir: str = "output/markdown",
+        sync_records_dir: str = "output/sync_records",
+        reformat: bool = False,
+        api_key: str = None,
+        step5_max_workers: int = 2,
+        llm_timeout_sec: int = 40,
+        max_original_subtitle_chars: int = 8000,
+        max_video_duration_sec: int = 1800,
+    ):
         """
         初始化数据同步管理器
 
@@ -51,6 +61,10 @@ class DataSyncManager:
 
         self.reformat = reformat
         self.api_key = api_key
+        self.step5_max_workers = step5_max_workers
+        self.llm_timeout_sec = llm_timeout_sec
+        self.max_original_subtitle_chars = max_original_subtitle_chars
+        self.max_video_duration_sec = max_video_duration_sec
 
     def extract_video_list(self, json_file: str) -> List[str]:
         """
@@ -287,7 +301,13 @@ class DataSyncManager:
             from get_subtitle import SubtitleExtractor
             
             # 创建字幕提取器实例
-            subtitle_extractor = SubtitleExtractor(reformat=self.reformat, api_key=self.api_key)
+            subtitle_extractor = SubtitleExtractor(
+                reformat=self.reformat,
+                api_key=self.api_key,
+                llm_timeout_sec=self.llm_timeout_sec,
+                max_original_subtitle_chars=self.max_original_subtitle_chars,
+                max_video_duration_sec=self.max_video_duration_sec,
+            )
             
             # 获取单个视频的字幕（启用排版功能）
             subtitle_result = subtitle_extractor.get_video_subtitles(

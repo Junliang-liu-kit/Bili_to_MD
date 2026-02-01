@@ -35,8 +35,17 @@ from src.get_bv_info import BVInfoExtractor
 from src.data_sync import DataSyncManager
 
 
-def sync_workflow(media_id: int, cookie_path: Optional[str] = None,
-                 output_dir: str = "output/markdown", reformat: bool = False, api_key: str = None) -> bool:
+def sync_workflow(
+    media_id: int,
+    cookie_path: Optional[str] = None,
+    output_dir: str = "output/markdown",
+    reformat: bool = False,
+    api_key: str = None,
+    step5_max_workers: int = 2,
+    llm_timeout_sec: int = 40,
+    max_original_subtitle_chars: int = 8000,
+    max_video_duration_sec: int = 1800,
+) -> bool:
     """
     执行完整的收藏夹同步工作流
 
@@ -65,7 +74,15 @@ def sync_workflow(media_id: int, cookie_path: Optional[str] = None,
 
         # 步骤2: 检查历史同步记录
         print("\n步骤2: 检查历史同步记录...")
-        sync_manager = DataSyncManager(output_dir=output_dir, reformat=reformat, api_key=api_key)
+        sync_manager = DataSyncManager(
+            output_dir=output_dir,
+            reformat=reformat,
+            api_key=api_key,
+            step5_max_workers=step5_max_workers,
+            llm_timeout_sec=llm_timeout_sec,
+            max_original_subtitle_chars=max_original_subtitle_chars,
+            max_video_duration_sec=max_video_duration_sec,
+        )
         synced_bvs = sync_manager.load_sync_record(media_id)
 
         # 步骤3: 筛选待同步视频
@@ -153,6 +170,10 @@ def load_config():
         llm_params = config['LLM Parameters for GLM']
         reformat = True if llm_params.get('REFORMAT') == 'True' else False
         api_key = llm_params.get('API_KEY')
+        step5_max_workers = llm_params.getint('STEP5_MAX_WORKERS', fallback=2)
+        llm_timeout_sec = llm_params.getint('LLM_TIMEOUT_SEC', fallback=40)
+        max_original_subtitle_chars = llm_params.getint('MAX_ORIGINAL_SUBTITLE_CHARS', fallback=8000)
+        max_video_duration_sec = llm_params.getint('MAX_VIDEO_DURATION_SEC', fallback=1800)
 
         # 处理MEDIA_ID字符串格式（去除引号）
         if media_id and media_id.startswith('"') and media_id.endswith('"'):
@@ -177,7 +198,17 @@ def load_config():
             print(f"❌ 错误：无效的MEDIA_ID格式: {media_id}")
             sys.exit(1)
 
-        return media_id, cookie_path, output_dir, reformat, api_key
+        return (
+            media_id,
+            cookie_path,
+            output_dir,
+            reformat,
+            api_key,
+            step5_max_workers,
+            llm_timeout_sec,
+            max_original_subtitle_chars,
+            max_video_duration_sec,
+        )
 
     except Exception as e:
         print(f"❌ 错误：读取配置文件失败: {str(e)}")
@@ -187,7 +218,17 @@ def load_config():
 def main():
     """主函数"""
     # 从配置文件加载参数
-    media_id, cookie_path, output_dir, reformat, api_key = load_config()
+    (
+        media_id,
+        cookie_path,
+        output_dir,
+        reformat,
+        api_key,
+        step5_max_workers,
+        llm_timeout_sec,
+        max_original_subtitle_chars,
+        max_video_duration_sec,
+    ) = load_config()
 
     # 检查cookie文件（如果指定）
     if cookie_path and cookie_path != "qr_login.txt" and not os.path.exists(cookie_path):
@@ -206,7 +247,17 @@ def main():
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     # 执行同步工作流
-    success = sync_workflow(media_id, cookie_path, output_dir, reformat, api_key)
+    success = sync_workflow(
+        media_id,
+        cookie_path,
+        output_dir,
+        reformat,
+        api_key,
+        step5_max_workers,
+        llm_timeout_sec,
+        max_original_subtitle_chars,
+        max_video_duration_sec,
+    )
 
     print("\n" + "=" * 50)
     if success:
