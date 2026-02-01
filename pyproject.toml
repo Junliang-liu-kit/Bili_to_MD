@@ -12,5 +12,6 @@ dependencies = [
     "pyyaml>=6.0",
     "qrcode>=7.0.0",
     "requests>=2.25.0",
+    "tqdm>=4.66.0",
     "zai-sdk>=0.2.0"
 ]
