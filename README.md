@@ -7,7 +7,10 @@ Bili_to_MD 是一个基于 Python 的 Bilibili 自动化工具包，专注于将
 - ✅ **收藏夹同步**: 将 B 站收藏夹批量导出为 Markdown 文件
 - ✅ **增量同步**: 智能识别已同步视频，仅同步新增内容
 - ✅ **视频信息获取**: 批量获取视频详细信息，包括标题、UP主、发布时间等
+- ✅ **视频字幕获取**: 自动拉取视频字幕并写入 Markdown
+- ✅ **字幕重新排版**: 可选使用 GLM 进行字幕排版，提升可读性
 - ✅ **配置化管理**: 通过配置文件管理收藏夹 ID、Cookie 路径等参数
+- ✅ **并发写入与进度条**: 步骤5支持并发写入并显示进度
 - ✅ **跨平台支持**: 支持 Windows、macOS、Linux 系统
 - ✅ **模块化架构**: 独立的功能模块，便于维护和扩展
 
@@ -50,8 +53,6 @@ source .venv/bin/activate  # Linux/macOS
 
 # 安装依赖
 pip install -e .
-# 或使用 requirements.txt
-pip install -r requirements.txt
 ```
 
 ## 🔧 使用说明
@@ -100,6 +101,13 @@ python src/cookie_get.py
 - `MEDIA_ID`: 收藏夹ID，用于指定要同步的目标收藏夹
 - `COOKIE_PATH`: cookie文件路径（可选），未指定时使用默认路径 `cookie/qr_login.txt`
 - `OUTPUT_DIR`: 输出目录路径，默认为 `output/markdown`
+- `REFORMAT`: 是否对字幕重新排版（True/False）
+- `API_KEY`: GLM API Key（开启字幕排版时必填）
+- `STEP5_USE_THREADS`: 是否并发执行保存 Markdown（True/False）
+- `STEP5_MAX_WORKERS`: 并发线程数，默认 2
+- `LLM_TIMEOUT_SEC`: LLM 请求超时秒数，默认 40
+- `MAX_ORIGINAL_SUBTITLE_CHARS`: 原始字幕字数阈值，超过则跳过排版
+- `MAX_VIDEO_DURATION_SEC`: 视频时长阈值（秒），超过则跳过排版
 
 **配置文件示例**:
 ```ini
@@ -107,6 +115,15 @@ python src/cookie_get.py
 MEDIA_ID = "123456"
 COOKIE_PATH =
 OUTPUT_DIR = "output/markdown"
+
+[LLM Parameters for GLM]
+REFORMAT = False
+API_KEY =
+STEP5_USE_THREADS = True
+STEP5_MAX_WORKERS = 2
+LLM_TIMEOUT_SEC = 40
+MAX_ORIGINAL_SUBTITLE_CHARS = 8000
+MAX_VIDEO_DURATION_SEC = 1800
 ```
 
 ### 2. 代码架构，主要模块功能说明
@@ -121,6 +138,8 @@ Bili_to_MD/
 │   ├── get_favorite.py     # 收藏夹信息获取模块
 │   ├── get_bv_info.py      # 视频详细信息获取模块
 │   ├── data_sync.py        # 数据同步和Markdown转换模块
+│   ├── get_subtitle.py     # 视频字幕获取模块
+│   ├── reformat_subtitle.py # 字幕重新排版模块
     ├── cookie_get.py       # Cookie管理工具
     └── Tools/                  # 底层工具库
         ├── bili_tools.py       # Bilibili API 封装
@@ -147,7 +166,15 @@ Bili_to_MD/
 - **data_sync.py**: 数据同步管理
   - 实现增量同步机制
   - 将视频信息转换为 Markdown 格式
+  - 写入视频字幕（优先使用排版后字幕）
   - 管理同步记录，避免重复同步
+
+- **get_subtitle.py**: 字幕获取与筛选
+  - 拉取视频字幕并合成文本
+  - 支持字幕重新排版开关
+
+- **reformat_subtitle.py**: 字幕重新排版
+  - 基于 GLM API 将字幕整理为更易读的段落
 
 - **cookie_get.py**: Cookie 管理工具
   - 支持扫码登录获取 Cookie
@@ -178,7 +205,7 @@ uv run main.py
 2. **检查历史同步记录**: 读取本地的同步记录文件
 3. **筛选待同步视频**: 对比当前列表和历史记录，筛选出需要同步的视频
 4. **批量获取视频信息**: 获取视频的详细信息和元数据
-5. **保存为Markdown文件**: 将视频信息转换为 Markdown 格式并保存到本地
+5. **保存为Markdown文件**: 将视频信息转换为 Markdown 格式并保存到本地（包含字幕获取与可选排版）
 6. **更新同步记录**: 更新同步记录，标记本次同步的视频
 
 ## 📝 输出格式
@@ -192,6 +219,7 @@ uv run main.py
 - **视频简介**: 视频描述信息
 - **获取时间**: 同步操作的时间戳
 - **其他元数据**: 时长、播放量、点赞数等
+- **视频字幕**: 自动拉取并写入，若无法获取则显示“无视频字幕”
 
 ## 🔧 故障排除
 
@@ -209,6 +237,11 @@ uv run main.py
 3. **路径权限错误**
    - 确认输出目录有写入权限
    - 使用绝对路径避免相对路径问题
+
+4. **字幕为空或排版未生效**
+   - 确认视频本身是否提供字幕
+   - 检查 `REFORMAT` 是否为 `True` 且 `API_KEY` 是否填写
+   - 当字幕字数或视频时长超过阈值时会自动跳过排版
 
 ## 致谢
 本项目部分代码基于以下项目开发：
@@ -232,3 +265,6 @@ uv run main.py
 - 支持增量同步机制
 - 添加配置文件管理
 - 优化错误处理和用户体验
+- 添加视频字幕获取与写入 Markdown
+- 集成字幕重新排版与超参数阈值控制
+- 步骤5支持并发保存与进度条显示
