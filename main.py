@@ -41,6 +41,7 @@ def sync_workflow(
     output_dir: str = "output/markdown",
     reformat: bool = False,
     api_key: str = None,
+    step5_use_threads: bool = False,
     step5_max_workers: int = 2,
     llm_timeout_sec: int = 40,
     max_original_subtitle_chars: int = 8000,
@@ -78,6 +79,7 @@ def sync_workflow(
             output_dir=output_dir,
             reformat=reformat,
             api_key=api_key,
+            step5_use_threads=step5_use_threads,
             step5_max_workers=step5_max_workers,
             llm_timeout_sec=llm_timeout_sec,
             max_original_subtitle_chars=max_original_subtitle_chars,
@@ -119,12 +121,27 @@ def sync_workflow(
         try:
             # 步骤5: 保存为Markdown文件
             print(f"\n步骤5: 保存 {len(successful_videos)} 个视频为Markdown文件...")
-            success_count = 0
-            for video_info in successful_videos:
-                if sync_manager.save_to_markdown(video_info):
-                    success_count += 1
 
-            print(f"✓ 成功保存 {success_count}/{len(successful_videos)} 个Markdown文件")
+            if step5_use_threads:
+                # 并发执行
+                print(f"使用并发模式 (max_workers={step5_max_workers})")
+                success_count, failed_bvs = sync_manager.save_to_markdown_threads(successful_videos)
+            else:
+                # 串行执行
+                print("使用串行模式")
+                success_count = 0
+                failed_bvs = []
+                for video_info in successful_videos:
+                    if sync_manager.save_to_markdown(video_info):
+                        success_count += 1
+                    else:
+                        failed_bvs.append(video_info.get('bv', 'unknown'))
+
+            failed_count = len(failed_bvs)
+            failed_bvs_display = ", ".join(failed_bvs) if failed_bvs else "无"
+            print(f"✓ 成功保存: {success_count}/{len(successful_videos)} 个文件")
+            if failed_count > 0:
+                print(f"  失败数量: {failed_count}，失败BV: {failed_bvs_display}")
 
             # 步骤6: 更新同步记录
             print("\n步骤6: 更新同步记录...")
@@ -170,6 +187,7 @@ def load_config():
         llm_params = config['LLM Parameters for GLM']
         reformat = True if llm_params.get('REFORMAT') == 'True' else False
         api_key = llm_params.get('API_KEY')
+        step5_use_threads = True if llm_params.get('STEP5_USE_THREADS') == 'True' else False
         step5_max_workers = llm_params.getint('STEP5_MAX_WORKERS', fallback=2)
         llm_timeout_sec = llm_params.getint('LLM_TIMEOUT_SEC', fallback=40)
         max_original_subtitle_chars = llm_params.getint('MAX_ORIGINAL_SUBTITLE_CHARS', fallback=8000)
@@ -204,6 +222,7 @@ def load_config():
             output_dir,
             reformat,
             api_key,
+            step5_use_threads,
             step5_max_workers,
             llm_timeout_sec,
             max_original_subtitle_chars,
@@ -224,6 +243,7 @@ def main():
         output_dir,
         reformat,
         api_key,
+        step5_use_threads,
         step5_max_workers,
         llm_timeout_sec,
         max_original_subtitle_chars,
@@ -253,6 +273,7 @@ def main():
         output_dir,
         reformat,
         api_key,
+        step5_use_threads,
         step5_max_workers,
         llm_timeout_sec,
         max_original_subtitle_chars,

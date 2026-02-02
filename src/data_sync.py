@@ -25,6 +25,7 @@ from datetime import datetime
 from typing import List, Dict, Set, Optional, Tuple
 from pathlib import Path
 from tqdm import tqdm
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 class DataSyncManager:
@@ -36,6 +37,7 @@ class DataSyncManager:
         sync_records_dir: str = "output/sync_records",
         reformat: bool = False,
         api_key: str = None,
+        step5_use_threads: bool = False,
         step5_max_workers: int = 2,
         llm_timeout_sec: int = 40,
         max_original_subtitle_chars: int = 8000,
@@ -62,6 +64,7 @@ class DataSyncManager:
 
         self.reformat = reformat
         self.api_key = api_key
+        self.step5_use_threads = step5_use_threads
         self.step5_max_workers = step5_max_workers
         self.llm_timeout_sec = llm_timeout_sec
         self.max_original_subtitle_chars = max_original_subtitle_chars
@@ -459,6 +462,43 @@ class DataSyncManager:
             print(f"✗ 更新同步记录失败: {e}")
             return False
 
+    def save_to_markdown_threads(self, video_info_list: List[Dict]) -> Tuple[int, List[str]]:
+        """
+        使用线程池并发保存视频信息为Markdown文件
+
+        Args:
+            video_info_list: 视频信息列表
+
+        Returns:
+            (成功数量, 失败的BV号列表)
+        """
+        success_count = 0
+        failed_bvs = []
+
+        with ThreadPoolExecutor(max_workers=self.step5_max_workers) as executor:
+            # 提交所有任务
+            future_to_bv = {
+                executor.submit(self.save_to_markdown, video_info): video_info.get('bv', 'unknown')
+                for video_info in video_info_list
+            }
+
+            # 使用 tqdm 进度条
+            with tqdm(total=len(video_info_list), desc="步骤5 保存Markdown(并发)", unit="视频") as pbar:
+                for future in as_completed(future_to_bv):
+                    bv = future_to_bv[future]
+                    try:
+                        if future.result():
+                            success_count += 1
+                        else:
+                            failed_bvs.append(bv)
+                    except Exception as e:
+                        print(f"  警告：处理 {bv} 时发生异常: {e}")
+                        failed_bvs.append(bv)
+                    finally:
+                        pbar.update(1)
+
+        return success_count, failed_bvs
+
     def sync_data(self, json_file: str, media_id: int) -> bool:
         """
         执行完整的数据同步流程
@@ -498,13 +538,21 @@ class DataSyncManager:
 
         # 步骤5: 筛选核心信息并保存为Markdown（字幕获取在 save_to_markdown 内部自动完成）
         print(f"\n步骤5: 开始保存 {len(video_info_list)} 个视频的Markdown文件...")
-        success_count = 0
-        failed_bvs = []
-        for video_info in tqdm(video_info_list, desc="步骤5 保存Markdown", unit="视频"):
-            if self.save_to_markdown(video_info):
-                success_count += 1
-            else:
-                failed_bvs.append(video_info.get('bv', 'unknown'))
+
+        if self.step5_use_threads:
+            # 并发执行
+            print(f"使用并发模式 (max_workers={self.step5_max_workers})")
+            success_count, failed_bvs = self.save_to_markdown_threads(video_info_list)
+        else:
+            # 串行执行
+            print("使用串行模式")
+            success_count = 0
+            failed_bvs = []
+            for video_info in tqdm(video_info_list, desc="步骤5 保存Markdown", unit="视频"):
+                if self.save_to_markdown(video_info):
+                    success_count += 1
+                else:
+                    failed_bvs.append(video_info.get('bv', 'unknown'))
 
         failed_count = len(failed_bvs)
         failed_bvs_display = ", ".join(failed_bvs) if failed_bvs else "无"
