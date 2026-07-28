@@ -41,6 +41,8 @@ def sync_workflow(
     output_dir: str = "output/markdown",
     reformat: bool = False,
     api_key: str = None,
+    model: str = None,
+    base_url: str = None,
     step5_use_threads: bool = False,
     step5_max_workers: int = 2,
     llm_timeout_sec: int = 40,
@@ -55,7 +57,9 @@ def sync_workflow(
         cookie_path: cookie文件路径，可选
         output_dir: 输出目录路径
         reformat: 是否重新排版
-        api_key: GLM API密钥
+        api_key: 大模型 API 密钥
+        model: 大模型名称
+        base_url: 大模型 API 基础地址
     Returns:
         同步是否成功
     """
@@ -79,6 +83,8 @@ def sync_workflow(
             output_dir=output_dir,
             reformat=reformat,
             api_key=api_key,
+            model=model,
+            base_url=base_url,
             step5_use_threads=step5_use_threads,
             step5_max_workers=step5_max_workers,
             llm_timeout_sec=llm_timeout_sec,
@@ -184,9 +190,11 @@ def load_config():
         cookie_path = sync_params.get('COOKIE_PATH')
         output_dir = sync_params.get('OUTPUT_DIR')
 
-        llm_params = config['LLM Parameters for GLM']
+        llm_params = config['LLM Parameters']
         reformat = True if llm_params.get('REFORMAT') == 'True' else False
         api_key = llm_params.get('API_KEY')
+        model = llm_params.get('MODEL')
+        base_url = llm_params.get('BASE_URL')
         step5_use_threads = True if llm_params.get('STEP5_USE_THREADS') == 'True' else False
         step5_max_workers = llm_params.getint('STEP5_MAX_WORKERS', fallback=2)
         llm_timeout_sec = llm_params.getint('LLM_TIMEOUT_SEC', fallback=40)
@@ -222,6 +230,8 @@ def load_config():
             output_dir,
             reformat,
             api_key,
+            model,
+            base_url,
             step5_use_threads,
             step5_max_workers,
             llm_timeout_sec,
@@ -243,6 +253,8 @@ def main():
         output_dir,
         reformat,
         api_key,
+        model,
+        base_url,
         step5_use_threads,
         step5_max_workers,
         llm_timeout_sec,
@@ -273,6 +285,8 @@ def main():
         output_dir,
         reformat,
         api_key,
+        model,
+        base_url,
         step5_use_threads,
         step5_max_workers,
         llm_timeout_sec,

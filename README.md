@@ -8,7 +8,7 @@ Bili_to_MD 是一个基于 Python 的 Bilibili 自动化工具包，专注于将
 - ✅ **增量同步**: 智能识别已同步视频，仅同步新增内容
 - ✅ **视频信息获取**: 批量获取视频详细信息，包括标题、UP主、发布时间等
 - ✅ **视频字幕获取**: 自动拉取视频字幕并写入 Markdown
-- ✅ **字幕重新排版**: 可选使用 GLM 进行字幕排版，提升可读性
+- ✅ **字幕重新排版**: 可选使用 GLM 或 DeepSeek 等支持OpenAI 兼容API的大模型进行字幕排版，提升可读性
 - ✅ **配置化管理**: 通过配置文件管理收藏夹 ID、Cookie 路径等参数
 - ✅ **并发写入与进度条**: 步骤5支持并发写入并显示进度
 - ✅ **跨平台支持**: 支持 Windows、macOS、Linux 系统
@@ -18,7 +18,7 @@ Bili_to_MD 是一个基于 Python 的 Bilibili 自动化工具包，专注于将
 
 ### 环境要求
 
-- Python 3.12+
+- Python 3.13+
 - uv (推荐) 或 pip
 
 ### 安装步骤
@@ -92,6 +92,22 @@ python src/cookie_get.py
 2. 修改 `OUTPUT_DIR` 参数为你想要的输出路径
 3. 可以使用相对路径或绝对路径
 
+### 4. 字幕重新排版模型配置
+
+字幕排版通过 OpenAI 兼容的 Chat Completions API 调用大模型，目前可配置 GLM、DeepSeek 等兼容服务。程序会自动在 `BASE_URL` 后拼接 `/chat/completions`，因此 `BASE_URL` 只填写基础地址，不要包含该接口路径。
+
+使用 DeepSeek 时，在 `config/dev.ini` 的 `[LLM Parameters]` 段落中设置：
+
+```ini
+[LLM Parameters]
+MODEL = deepseek-v4-flash
+BASE_URL = https://api.deepseek.com
+REFORMAT = True
+API_KEY = 你的_API_KEY
+```
+
+使用其他兼容模型时，只需将 `MODEL`、`BASE_URL` 和 `API_KEY` 替换为对应服务的配置。API Key 属于敏感信息，请勿提交到公开仓库或粘贴到日志中。
+
 ## 📁 项目介绍
 
 ### 1. 核心参数
@@ -102,7 +118,9 @@ python src/cookie_get.py
 - `COOKIE_PATH`: cookie文件路径（可选），未指定时使用默认路径 `cookie/qr_login.txt`
 - `OUTPUT_DIR`: 输出目录路径，默认为 `output/markdown`
 - `REFORMAT`: 是否对字幕重新排版（True/False）
-- `API_KEY`: GLM API Key（开启字幕排版时必填）
+- `API_KEY`: 大模型 API Key（开启字幕排版时必填）
+- `MODEL`: 大模型名称，如 `deepseek-v4-flash`
+- `BASE_URL`: OpenAI 兼容 API 的基础地址，如 `https://api.deepseek.com`
 - `STEP5_USE_THREADS`: 是否并发执行保存 Markdown（True/False）
 - `STEP5_MAX_WORKERS`: 并发线程数，默认 2
 - `LLM_TIMEOUT_SEC`: LLM 请求超时秒数，默认 40
@@ -116,8 +134,10 @@ MEDIA_ID = "123456"
 COOKIE_PATH =
 OUTPUT_DIR = "output/markdown"
 
-[LLM Parameters for GLM]
-REFORMAT = False
+[LLM Parameters]
+MODEL = deepseek-v4-flash
+BASE_URL = https://api.deepseek.com
+REFORMAT = True
 API_KEY =
 STEP5_USE_THREADS = True
 STEP5_MAX_WORKERS = 2
@@ -174,7 +194,7 @@ Bili_to_MD/
   - 支持字幕重新排版开关
 
 - **reformat_subtitle.py**: 字幕重新排版
-  - 基于 GLM API 将字幕整理为更易读的段落
+  - 基于配置的 OpenAI 兼容 API（支持 GLM、DeepSeek）将字幕整理为更易读的段落
 
 - **cookie_get.py**: Cookie 管理工具
   - 支持扫码登录获取 Cookie
@@ -241,6 +261,8 @@ uv run main.py
 4. **字幕为空或排版未生效**
    - 确认视频本身是否提供字幕
    - 检查 `REFORMAT` 是否为 `True` 且 `API_KEY` 是否填写
+   - 检查 `MODEL` 是否为服务商支持的模型名称
+   - `BASE_URL` 应填写 API 基础地址，不要包含 `/chat/completions`
    - 当字幕字数或视频时长超过阈值时会自动跳过排版
 
 ## 致谢
@@ -267,4 +289,5 @@ uv run main.py
 - 优化错误处理和用户体验
 - 添加视频字幕获取与写入 Markdown
 - 集成字幕重新排版与超参数阈值控制
+- 支持通过通用 LLM 配置选择 GLM、DeepSeek 等 OpenAI 兼容模型
 - 步骤5支持并发保存与进度条显示

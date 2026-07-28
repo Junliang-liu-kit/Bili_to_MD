@@ -37,6 +37,8 @@ class DataSyncManager:
         sync_records_dir: str = "output/sync_records",
         reformat: bool = False,
         api_key: str = None,
+        model: str = None,
+        base_url: str = None,
         step5_use_threads: bool = False,
         step5_max_workers: int = 2,
         llm_timeout_sec: int = 40,
@@ -50,7 +52,9 @@ class DataSyncManager:
             output_dir: Markdown文件输出目录
             sync_records_dir: 同步记录存储目录
             reformat: 是否重新排版，默认为False
-            api_key: GLM API密钥，默认为None
+            api_key: 大模型 API 密钥，默认为None
+            model: 大模型名称，默认为None
+            base_url: 大模型 API 基础地址，默认为None
         """
         self.output_dir = Path(output_dir)
         self.sync_records_dir = Path(sync_records_dir)
@@ -64,6 +68,8 @@ class DataSyncManager:
 
         self.reformat = reformat
         self.api_key = api_key
+        self.model = model
+        self.base_url = base_url
         self.step5_use_threads = step5_use_threads
         self.step5_max_workers = step5_max_workers
         self.llm_timeout_sec = llm_timeout_sec
@@ -308,6 +314,8 @@ class DataSyncManager:
             subtitle_extractor = SubtitleExtractor(
                 reformat=self.reformat,
                 api_key=self.api_key,
+                model=self.model,
+                base_url=self.base_url,
                 llm_timeout_sec=self.llm_timeout_sec,
                 max_original_subtitle_chars=self.max_original_subtitle_chars,
                 max_video_duration_sec=self.max_video_duration_sec,

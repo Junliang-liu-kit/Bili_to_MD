@@ -4,7 +4,7 @@
 字幕重新排版模块
 
 使用大模型对 JSON 字幕文件的 content 字段进行重新排版。
-提示词存放在 config/prompt.yml，使用 GLM-4.6 模型。
+提示词存放在 config/prompt.yml，大模型及 API 地址由配置文件指定。
 """
 
 import os
@@ -21,17 +21,31 @@ from pathlib import Path
 class SubtitleReformatter:
     """字幕重新排版器"""
 
-    def __init__(self, api_key: str, llm_timeout_sec: int = 40):
+    def __init__(
+        self,
+        api_key: str,
+        model: str,
+        base_url: str,
+        llm_timeout_sec: int = 40,
+    ):
         """
         初始化字幕重新排版器
 
         Args:
-            api_key: GLM API密钥，必须提供
+            api_key: 大模型 API 密钥，必须提供
+            model: 大模型名称，必须提供
+            base_url: 大模型 API 基础地址，必须提供
         """
         if not api_key:
-            raise ValueError("必须提供 GLM API Key")
-        
+            raise ValueError("必须提供大模型 API Key")
+        if not model:
+            raise ValueError("必须提供大模型名称")
+        if not base_url:
+            raise ValueError("必须提供大模型 API 基础地址")
+
         self.api_key = api_key
+        self.model = model
+        self.base_url = base_url.rstrip('/')
         self.llm_timeout_sec = llm_timeout_sec
 
     def _load_prompts_from_yaml(self, yaml_path: Optional[str] = None) -> dict:
@@ -65,9 +79,9 @@ class SubtitleReformatter:
         except Exception as e:
             raise RuntimeError(f"加载提示词失败: {e}")
 
-    def _call_glm_api(self, system_prompt: str, user_prompt: str) -> str:
+    def _call_llm_api(self, system_prompt: str, user_prompt: str) -> str:
         """
-        调用 GLM-4.7 API 进行文本重新排版
+        调用 OpenAI 兼容的大模型 API 进行文本重新排版
 
         Args:
             system_prompt: 系统提示词
@@ -76,7 +90,7 @@ class SubtitleReformatter:
         Returns:
             重新排版后的文本内容
         """
-        url = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+        url = f"{self.base_url}/chat/completions"
         
         headers = {
             "Content-Type": "application/json",
@@ -84,7 +98,7 @@ class SubtitleReformatter:
         }
         
         payload = {
-            "model": "glm-4.6",
+            "model": self.model,
             "messages": [
                 {
                     "role": "system",
@@ -117,7 +131,7 @@ class SubtitleReformatter:
                 raise ValueError(f"API 返回格式异常: {result}")
                 
         except requests.exceptions.RequestException as e:
-            raise RuntimeError(f"调用 GLM API 失败: {e}")
+            raise RuntimeError(f"调用大模型 API 失败: {e}")
         except json.JSONDecodeError as e:
             raise RuntimeError(f"解析 API 响应失败: {e}")
 
@@ -157,8 +171,8 @@ class SubtitleReformatter:
             user_prompt = user_prompt.replace('{{contents}}', original_content)
             
             try:
-                # 调用 GLM API
-                reformatted_content = self._call_glm_api(system_prompt, user_prompt)
+                # 调用大模型 API
+                reformatted_content = self._call_llm_api(system_prompt, user_prompt)
                 
                 # 创建新的字幕字典，保持原有字段，只更新 content
                 new_subtitle = subtitle.copy()
@@ -278,8 +292,10 @@ def main():
             i += 1
     
     try:
-        # 从 dev.ini 读取 API key
+        # 从 dev.ini 读取大模型配置
         api_key = None
+        model = None
+        base_url = None
         config_path = Path(__file__).parent.parent / "config" / "dev.ini"
         
         if config_path.exists():
@@ -288,7 +304,10 @@ def main():
                 config.read(config_path, encoding='utf-8')
                 
                 if 'LLM Parameters' in config:
-                    api_key = config['LLM Parameters'].get('GLM_API_KEY', '').strip()
+                    llm_params = config['LLM Parameters']
+                    api_key = llm_params.get('API_KEY', '').strip()
+                    model = llm_params.get('MODEL', '').strip()
+                    base_url = llm_params.get('BASE_URL', '').strip()
                     if api_key.startswith('"') and api_key.endswith('"'):
                         api_key = api_key[1:-1]
                     api_key = api_key.strip()
@@ -297,13 +316,18 @@ def main():
         
         # 如果配置文件中没有，从环境变量读取
         if not api_key:
-            api_key = os.getenv('GLM_API_KEY')
-        
-        if not api_key:
-            raise ValueError("未找到 GLM API Key，请设置环境变量 GLM_API_KEY 或在 config/dev.ini 中配置")
-        
+            api_key = os.getenv('LLM_API_KEY')
+        if not model:
+            model = os.getenv('LLM_MODEL')
+        if not base_url:
+            base_url = os.getenv('LLM_BASE_URL')
+
         # 创建重新排版器
-        reformatter = SubtitleReformatter(api_key=api_key)
+        reformatter = SubtitleReformatter(
+            api_key=api_key,
+            model=model,
+            base_url=base_url,
+        )
         
         # 执行重新排版
         output_path = reformatter.reformat_subtitle_json_file(json_path, output_filename)

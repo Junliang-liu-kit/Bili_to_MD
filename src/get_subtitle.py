@@ -37,6 +37,8 @@ class SubtitleExtractor:
         cookie_path: Optional[str] = None,
         reformat: bool = False,
         api_key: str = None,
+        model: str = None,
+        base_url: str = None,
         llm_timeout_sec: int = 40,
         max_original_subtitle_chars: int = 8000,
         max_video_duration_sec: int = 1800,
@@ -47,7 +49,9 @@ class SubtitleExtractor:
         Args:
             cookie_path: cookie文件路径，默认为None使用默认路径
             reformat: 是否重新排版，默认为False
-            api_key: GLM API密钥，默认为None
+            api_key: 大模型 API 密钥，默认为None
+            model: 大模型名称，默认为None
+            base_url: 大模型 API 基础地址，默认为None
         """
         self.cookie_path = cookie_path
         if cookie_path is None:
@@ -63,6 +67,8 @@ class SubtitleExtractor:
 
         self.reformat = reformat
         self.api_key = api_key
+        self.model = model
+        self.base_url = base_url
         self.llm_timeout_sec = llm_timeout_sec
         self.max_original_subtitle_chars = max_original_subtitle_chars
         self.max_video_duration_sec = max_video_duration_sec
@@ -236,7 +242,12 @@ class SubtitleExtractor:
         if reformat:
             try:
                 from reformat_subtitle import SubtitleReformatter
-                reformatter = SubtitleReformatter(api_key=self.api_key, llm_timeout_sec=self.llm_timeout_sec)
+                reformatter = SubtitleReformatter(
+                    api_key=self.api_key,
+                    model=self.model,
+                    base_url=self.base_url,
+                    llm_timeout_sec=self.llm_timeout_sec,
+                )
             except ImportError:
                 print("  警告：无法导入 reformat_subtitle 模块，跳过重新排版")
                 reformat = False
