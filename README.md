@@ -211,9 +211,9 @@ python main.py
 uv run main.py
 ```
 
-**example_start.bat** 为样例启动文件，可根据个人实际需求自行修改配置：
+**example_start.bat** / **example_start.zsh** 为样例启动文件，分别适用于 Windows 和 macOS，可根据个人实际需求自行修改配置：
 - 自动切换到项目目录
-- 激活虚拟环境
+- 检查 uv 环境
 - 运行主程序
 - 提供错误处理和用户友好的提示信息
 

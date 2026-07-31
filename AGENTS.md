@@ -92,4 +92,4 @@ def example():
 
 ## Project Awareness & Context
 
-{Fill in project-specific information here}
+- 每次对话开头从[README.md](README.md)加载项目基本资料
